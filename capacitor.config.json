@@ -1,0 +1,9 @@
+{
+  "appId": "com.ecoalert.app",
+  "appName": "EcoAlert",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}

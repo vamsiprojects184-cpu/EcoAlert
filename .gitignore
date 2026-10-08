@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Native build artifacts
+android/app/build/
+android/.gradle/
+android/build/
+*.apk
+EcoAlert.apk
+
+# OS & Temp files
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,22 @@
+{
+  "name": "EcoAlert — Smart Weather Notifications",
+  "short_name": "EcoAlert",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0d1b16",
+  "theme_color": "#0d1b16",
+  "description": "Smart weather, rain, storm, heat, AQI and environmental alerts.",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    }
+  ]
+}

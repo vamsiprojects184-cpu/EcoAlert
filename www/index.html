@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0d1b16" />
+  <meta name="description" content="EcoAlert — smart weather, air quality and environmental alerts." />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png" />
+  <link rel="apple-touch-icon" href="icon.png" />
+  <title>EcoAlert · Smart Weather Notifications</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════
+       AUTH OVERLAY — shown when not logged in
+  ════════════════════════════════════════ -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-bg-art" aria-hidden="true">
+      <div class="auth-orb auth-orb-1"></div>
+      <div class="auth-orb auth-orb-2"></div>
+      <div class="auth-orb auth-orb-3"></div>
+    </div>
+
+    <!-- Login Panel -->
+    <div class="auth-panel" id="loginPanel">
+      <div class="auth-brand">
+        <div class="brand-mark">EA</div>
+        <div>
+          <div class="brand-name">EcoAlert</div>
+          <div class="brand-sub">Smart Weather Notifications</div>
+        </div>
+      </div>
+      <h2 class="auth-title">Welcome back</h2>
+      <p class="auth-subtitle">Sign in to your account to continue</p>
+      <form id="loginForm" novalidate>
+        <div class="auth-field">
+          <label for="loginEmail">Email address</label>
+          <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email" required />
+        </div>
+        <div class="auth-field">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" placeholder="Your password" autocomplete="current-password" required />
+        </div>
+        <div class="auth-error" id="loginError" role="alert"></div>
+        <button type="submit" class="primary-btn auth-submit">Sign in →</button>
+      </form>
+      <div class="auth-switch">
+        Don't have an account? <button class="link-inline" id="goSignup">Create one free</button>
+      </div>
+      <div class="auth-divider"><span>or</span></div>
+      <button class="ghost-btn auth-guest" id="guestBtn">👤 Continue as guest</button>
+      <p class="auth-note">Guest mode doesn't save your data across sessions.</p>
+    </div>
+
+    <!-- Signup Panel -->
+    <div class="auth-panel hidden" id="signupPanel">
+      <div class="auth-brand">
+        <div class="brand-mark">EA</div>
+        <div>
+          <div class="brand-name">EcoAlert</div>
+          <div class="brand-sub">Smart Weather Notifications</div>
+        </div>
+      </div>
+      <h2 class="auth-title">Create account</h2>
+      <p class="auth-subtitle">Start monitoring your environment for free</p>
+      <form id="signupForm" novalidate>
+        <div class="auth-field">
+          <label for="signupName">Full name</label>
+          <input type="text" id="signupName" placeholder="Your full name" autocomplete="name" required />
+        </div>
+        <div class="auth-field">
+          <label for="signupEmail">Email address</label>
+          <input type="email" id="signupEmail" placeholder="you@example.com" autocomplete="email" required />
+        </div>
+        <div class="auth-field">
+          <label for="signupPassword">Password <small>(min. 6 characters)</small></label>
+          <input type="password" id="signupPassword" placeholder="Choose a strong password" autocomplete="new-password" minlength="6" required />
+        </div>
+        <div class="auth-error" id="signupError" role="alert"></div>
+        <button type="submit" class="primary-btn auth-submit">Create account →</button>
+      </form>
+      <div class="auth-switch">
+        Already have an account? <button class="link-inline" id="goLogin">Sign in</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       MAIN APP SHELL
+  ════════════════════════════════════════ -->
+  <div class="app-shell">
+
+    <!-- ── Top Bar ── -->
+    <header class="topbar">
+      <div class="brand-wrap">
+        <button class="mobile-menu" id="mobileMenu" aria-label="Open menu">☰</button>
+        <div class="brand-mark" aria-hidden="true">EA</div>
+        <div>
+          <div class="brand-name">EcoAlert</div>
+          <div class="brand-sub">Smart Weather Notifications</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="ghost-btn" id="refreshBtn" title="Refresh live data">↻ <span>Refresh</span></button>
+        <button class="theme-toggle" id="themeToggle" title="Toggle dark mode" aria-label="Toggle theme">🌙</button>
+        <button class="icon-btn" id="notificationBtn" title="Enable notifications" aria-label="Notifications">
+          🔔<span class="dot" id="notifDot"></span>
+        </button>
+        <button class="profile-btn" id="profileBtn" title="My profile" aria-label="Profile">VK</button>
+      </div>
+    </header>
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+      <div class="sidebar-section">
+        <button class="nav-item active" data-view="dashboard"><span class="nav-icon">⌂</span>Dashboard</button>
+        <button class="nav-item" data-view="alerts"><span class="nav-icon">⚠</span>Alerts <span class="nav-badge" id="alertCount" data-count="0">0</span></button>
+        <button class="nav-item" data-view="ai"><span class="nav-icon">✦</span>EcoAI Assistant</button>
+        <button class="nav-item" data-view="map"><span class="nav-icon">⌖</span>Live Alert Map</button>
+        <button class="nav-item" data-view="forecast"><span class="nav-icon">☼</span>7-Day Forecast</button>
+        <button class="nav-item" data-view="reports"><span class="nav-icon">▤</span>Reports</button>
+      </div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section">
+        <button class="nav-item" data-view="locations"><span class="nav-icon">◎</span>Locations</button>
+        <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>Settings</button>
+        <button class="nav-item" data-view="profile"><span class="nav-icon">👤</span>My Profile</button>
+      </div>
+      <div class="sidebar-foot">
+        <div class="status-card">
+          <span class="status-pulse"></span>
+          <div>
+            <strong>Live data</strong>
+            <small id="lastUpdated">Not loaded yet</small>
+          </div>
+        </div>
+        <small class="muted">Weather &amp; AQI · Open-Meteo · AI by Groq</small>
+      </div>
+    </aside>
+
+    <!-- ── Main Content ── -->
+    <main class="main" id="main">
+
+      <!-- Dashboard -->
+      <section class="view active" id="view-dashboard">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow" id="greeting">Good evening</div>
+            <h1>Your environmental dashboard</h1>
+            <p id="locationLine">Hyderabad, Telangana · India</p>
+          </div>
+          <div class="heading-tools">
+            <label class="search-box" aria-label="Search city">
+              <span>⌕</span>
+              <input id="locationSearch" placeholder="Search city or postcode…" autocomplete="off" />
+            </label>
+            <button class="primary-btn" id="useLocationBtn">📍 Use my location</button>
+          </div>
+        </div>
+        <div class="alert-banner ok" id="heroAlert">
+          <div class="alert-icon">✅</div>
+          <div>
+            <strong>Scanning your conditions…</strong>
+            <span>EcoAlert will surface the most important weather and air-quality risks here.</span>
+          </div>
+          <button class="link-btn" data-view="alerts">View alerts →</button>
+        </div>
+        <div class="dashboard-grid">
+          <article class="card current-card span-7">
+            <div class="card-head">
+              <div><span class="card-kicker">CURRENT CONDITIONS</span><h2 id="currentDesc">Loading…</h2></div>
+              <span class="live-pill">LIVE</span>
+            </div>
+            <div class="current-main">
+              <div class="temp-wrap">
+                <div class="weather-emoji" id="currentIcon">⛅</div>
+                <div class="big-temp" id="currentTemp">--°</div>
+              </div>
+              <div class="current-stats">
+                <div class="stat-item"><span>Feels like</span><strong id="feelsLike">--°</strong></div>
+                <div class="stat-item"><span>Humidity</span><strong id="currentHumidity">--%</strong></div>
+                <div class="stat-item"><span>Wind speed</span><strong id="currentWind">-- km/h</strong></div>
+                <div class="stat-item"><span>Rain (today)</span><strong id="currentRain">--%</strong></div>
+              </div>
+            </div>
+            <div class="hour-strip" id="hourStrip"></div>
+          </article>
+          <article class="card aqi-card span-5">
+            <div class="card-head">
+              <div><span class="card-kicker">AIR QUALITY</span><h2>Atmospheric health</h2></div>
+              <span class="quality-pill" id="aqiPill">--</span>
+            </div>
+            <div class="aqi-score">
+              <div><span class="aqi-number" id="aqiNumber">--</span><span class="aqi-scale">US AQI</span></div>
+              <div class="aqi-ring" id="aqiRing"><span></span></div>
+            </div>
+            <div class="aqi-meta"><span id="aqiStatus">Loading…</span><span id="pm25Value">PM2.5 -- μg/m³</span></div>
+            <div class="progress"><span id="aqiProgress"></span></div>
+            <div class="mini-grid">
+              <div><span>PM10</span><strong id="pm10Value">--</strong></div>
+              <div><span>O₃ Ozone</span><strong id="ozoneValue">--</strong></div>
+              <div><span>Dust</span><strong id="dustValue">--</strong></div>
+            </div>
+          </article>
+          <article class="card span-4 metric-card">
+            <span class="card-kicker">TEMPERATURE</span>
+            <div class="metric-row"><div class="metric-icon">🌡️</div><div><strong id="tempRange">--° / --°</strong><span>Today's high / low</span></div></div>
+            <div class="metric-note" id="tempNote">Loading…</div>
+            <span class="metric-badge ok" id="tempBadge">Loading</span>
+          </article>
+          <article class="card span-4 metric-card">
+            <span class="card-kicker">HUMIDITY</span>
+            <div class="metric-row"><div class="metric-icon">💧</div><div><strong id="humidityMetric">--%</strong><span>Relative humidity</span></div></div>
+            <div class="metric-note" id="humidityNote">Loading…</div>
+            <span class="metric-badge ok" id="humidityBadge">Loading</span>
+          </article>
+          <article class="card span-4 metric-card">
+            <span class="card-kicker">RAIN PROBABILITY</span>
+            <div class="metric-row"><div class="metric-icon">☔</div><div><strong id="rainMetric">--%</strong><span>Peak this week</span></div></div>
+            <div class="metric-note" id="rainNote">Loading…</div>
+            <span class="metric-badge ok" id="rainBadge">Loading</span>
+          </article>
+          <article class="card span-8 chart-card">
+            <div class="card-head">
+              <div><span class="card-kicker">NEXT 24 HOURS</span><h2>Rain &amp; temperature outlook</h2></div>
+              <div class="legend"><div class="legend-entry">Temperature</div><div class="legend-entry">Rain probability</div></div>
+            </div>
+            <canvas id="trendChart" aria-label="24-hour chart"></canvas>
+          </article>
+          <article class="card span-4 recommendation-card">
+            <div class="card-head">
+              <div><span class="card-kicker">SMART ACTIONS</span><h2>What you should do</h2></div>
+              <span class="spark">✦</span>
+            </div>
+            <div id="recommendations" class="recommendations"></div>
+          </article>
+          <article class="card span-12 map-card">
+            <div class="card-head">
+              <div><span class="card-kicker">LIVE WEATHER ALERT MAP</span><h2>Environmental risk around you</h2></div>
+              <button class="link-btn" data-view="map">Open full map →</button>
+            </div>
+            <div id="miniMap" class="mini-map"></div>
+          </article>
+          <article class="card span-12 forecast-card">
+            <div class="card-head">
+              <div><span class="card-kicker">7-DAY FORECAST</span><h2>Plan the week ahead</h2></div>
+              <button class="link-btn" data-view="forecast">Detailed forecast →</button>
+            </div>
+            <div class="forecast-list" id="forecastList"></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Alerts -->
+      <section class="view" id="view-alerts">
+        <div class="page-heading">
+          <div><div class="eyebrow">ALERT CENTER</div><h1>Weather &amp; environmental alerts</h1><p>Prioritized from current conditions and the next 48 hours.</p></div>
+          <button class="primary-btn" id="enableAlertsBtn">🔔 Enable notifications</button>
+        </div>
+        <div class="filter-row">
+          <button class="filter active" data-filter="all">All</button>
+          <button class="filter" data-filter="emergency">⛈ Emergency</button>
+          <button class="filter" data-filter="weather">🌧 Weather</button>
+          <button class="filter" data-filter="air">🍃 Air quality</button>
+          <button class="filter" data-filter="comfort">💧 Comfort</button>
+        </div>
+        <div id="alertList" class="alert-list"></div>
+        <div class="disclaimer">EcoAlert's alert engine uses forecast and model data with user-defined thresholds. For official emergency warnings, always follow local authorities and the India Meteorological Department (IMD).</div>
+      </section>
+
+      <!-- EcoAI Chat -->
+      <section class="view" id="view-ai">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">AI ASSISTANT · POWERED BY GROQ</div>
+            <h1>EcoAI — Your weather companion</h1>
+            <p>Ask anything about weather, air quality, health risks, or what to do.</p>
+          </div>
+          <button class="ghost-btn" id="clearChatBtn">🗑 Clear chat</button>
+        </div>
+        <div class="ai-layout">
+          <div class="ai-chat-panel">
+            <div class="ai-messages" id="aiMessages"></div>
+            <div class="ai-suggestions" id="aiSuggestions"></div>
+            <div class="ai-input-row">
+              <input id="aiInput" placeholder="Ask about weather, what to wear, air quality safety…" autocomplete="off" />
+              <button class="primary-btn ai-send-btn" id="aiSendBtn" aria-label="Send message">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
+          </div>
+          <aside class="ai-sidebar-panel">
+            <div class="card ai-context-card">
+              <span class="card-kicker">LIVE CONTEXT</span>
+              <h3 style="font:700 13px Manrope;margin:6px 0 12px">Data sent to EcoAI</h3>
+              <div id="aiContextInfo"></div>
+            </div>
+            <div class="card ai-info-card">
+              <span class="card-kicker">ABOUT ECOAI</span>
+              <p style="font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.6">EcoAI uses <strong>Qwen 3.8 27B</strong> via Groq's high-speed inference engine. It automatically receives your live weather data to give accurate, location-specific advice.</p>
+              <div class="ai-model-badge">⚡ qwen/qwen3.8-27b</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Map -->
+      <section class="view" id="view-map">
+        <div class="page-heading">
+          <div><div class="eyebrow">LIVE MAP</div><h1>Weather risk map</h1><p>Explore current conditions across monitored locations.</p></div>
+          <button class="ghost-btn" id="centerMapBtn">⊕ Center on location</button>
+        </div>
+        <div class="map-layout">
+          <div id="fullMap" class="full-map"></div>
+          <aside class="map-side">
+            <h3>Risk Legend</h3>
+            <div class="legend-item"><i class="legend-dot safe"></i><span>Low risk — safe</span></div>
+            <div class="legend-item"><i class="legend-dot watch"></i><span>Watch — monitor</span></div>
+            <div class="legend-item"><i class="legend-dot high"></i><span>High — take precautions</span></div>
+            <div class="legend-item"><i class="legend-dot emergency"></i><span>Emergency — danger</span></div>
+            <hr>
+            <h3>Locations</h3>
+            <div id="mapLocations" class="map-locations"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Forecast -->
+      <section class="view" id="view-forecast">
+        <div class="page-heading">
+          <div><div class="eyebrow">FORECAST</div><h1>7-day weather forecast</h1><p>Temperature, rain, wind and UV outlook for the week.</p></div>
+        </div>
+        <div id="forecastDetailed" class="detailed-forecast"></div>
+      </section>
+
+      <!-- Reports -->
+      <section class="view" id="view-reports">
+        <div class="page-heading">
+          <div><div class="eyebrow">REPORTS</div><h1>Weather &amp; environmental report</h1><p id="reportSubtitle">A simple briefing for your current location.</p></div>
+          <button class="ghost-btn" id="exportReportBtn">↧ Export report</button>
+        </div>
+        <div class="report-grid">
+          <article class="card report-summary"><span class="card-kicker">TODAY AT A GLANCE</span><h2 id="reportHeadline">Building your report…</h2><p id="reportBody"></p></article>
+          <article class="card"><span class="card-kicker">KEY INDICATORS</span><div id="reportIndicators" class="indicator-list"></div></article>
+          <article class="card span-12"><span class="card-kicker">WEEKLY TEMPERATURE OVERVIEW</span><canvas id="weeklyChart" aria-label="Weekly temperature chart"></canvas></article>
+        </div>
+      </section>
+
+      <!-- Locations -->
+      <section class="view" id="view-locations">
+        <div class="page-heading">
+          <div><div class="eyebrow">LOCATIONS</div><h1>Saved places</h1><p>Track the places that matter to you.</p></div>
+        </div>
+        <div class="location-add card">
+          <div><h3>Add a location</h3><p>Search a city, region, or postcode to follow its conditions.</p></div>
+          <div class="add-location-row">
+            <input id="addLocationInput" placeholder="e.g. Bengaluru, India" autocomplete="off" />
+            <button class="primary-btn" id="addLocationBtn">+ Add</button>
+          </div>
+        </div>
+        <div id="savedLocations" class="saved-locations"></div>
+      </section>
+
+      <!-- Settings -->
+      <section class="view" id="view-settings">
+        <div class="page-heading">
+          <div><div class="eyebrow">PREFERENCES</div><h1>Notification settings</h1><p>Choose what EcoAlert should watch for you.</p></div>
+          <span class="settings-state" id="settingsState">Autosaved</span>
+        </div>
+        <div class="settings-grid">
+          <article class="card setting-group">
+            <div class="setting-title"><span>🌧️</span><div><h3>Rain &amp; storms</h3><p>Get warned before weather affects your plans.</p></div></div>
+            <label class="setting-row"><span>Rain probability threshold</span><select data-setting="rainThreshold"><option value="40">40%+</option><option value="60">60%+</option><option value="80">80%+</option></select></label>
+            <label class="setting-row"><span>Storm / severe weather alerts</span><input type="checkbox" data-setting="storm" checked></label>
+          </article>
+          <article class="card setting-group">
+            <div class="setting-title"><span>🌡️</span><div><h3>Heat &amp; temperature</h3><p>Stay ahead of uncomfortable temperatures.</p></div></div>
+            <label class="setting-row"><span>Heat warning threshold</span><select data-setting="heatThreshold"><option value="35">35°C+</option><option value="38">38°C+</option><option value="40">40°C+</option></select></label>
+            <label class="setting-row"><span>Cold warning threshold</span><select data-setting="coldThreshold"><option value="10">10°C−</option><option value="8">8°C−</option><option value="5">5°C−</option></select></label>
+          </article>
+          <article class="card setting-group">
+            <div class="setting-title"><span>🍃</span><div><h3>Air quality</h3><p>Know when outdoor exposure may be unhealthy.</p></div></div>
+            <label class="setting-row"><span>AQI warning threshold</span><select data-setting="aqiThreshold"><option value="100">100+ (Moderate)</option><option value="150">150+ (Sensitive)</option><option value="200">200+ (Unhealthy)</option></select></label>
+            <label class="setting-row"><span>Dust &amp; particulate alerts</span><input type="checkbox" data-setting="dust" checked></label>
+          </article>
+          <article class="card setting-group">
+            <div class="setting-title"><span>🤖</span><div><h3>EcoAI Groq API Key</h3><p>Provide your Groq API key to power EcoAI. Stored locally only in your browser/device.</p></div></div>
+            <label class="setting-row"><span>API Key</span><input type="password" id="groqApiKeyInput" placeholder="gsk_..." style="height:34px;border:1px solid var(--line);border-radius:9px;padding:0 10px;font-size:12px;width:200px;background:var(--surface);color:var(--ink)"></label>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <button class="tiny-btn" id="saveApiKeyBtn" style="height:32px;padding:0 12px;font-weight:700">Save Key</button>
+              <button class="tiny-btn" id="clearApiKeyBtn" style="height:32px;padding:0 12px;color:var(--danger)">Clear</button>
+            </div>
+          </article>
+        </div>
+        <div class="settings-note">Notifications are browser-based. Weather data from <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>. EcoAI powered by <a href="https://groq.com" target="_blank" rel="noopener">Groq API</a>.</div>
+      </section>
+
+      <!-- Profile -->
+      <section class="view" id="view-profile">
+        <div class="page-heading">
+          <div><div class="eyebrow">ACCOUNT</div><h1>My profile</h1><p>Manage your account and personal settings.</p></div>
+          <button class="ghost-btn danger-ghost" id="logoutBtn">↪ Sign out</button>
+        </div>
+
+        <div class="profile-grid">
+
+          <!-- Profile Card -->
+          <article class="card profile-main-card">
+            <span class="card-kicker">PERSONAL INFO</span>
+            <div class="profile-avatar-section">
+              <div class="profile-avatar" id="profileAvatar">VK</div>
+              <div>
+                <h3 id="profileDisplayName" style="font:800 18px Manrope;margin-bottom:3px">Loading…</h3>
+                <div id="profileMeta" style="font-size:11px;color:var(--muted)"></div>
+              </div>
+            </div>
+
+            <div class="profile-form">
+              <div class="profile-field">
+                <label for="profileName">Display name</label>
+                <input type="text" id="profileName" placeholder="Your full name" />
+              </div>
+              <div class="profile-field">
+                <label for="profileEmail">Email address</label>
+                <input type="email" id="profileEmail" placeholder="you@example.com" disabled />
+              </div>
+              <div class="profile-field">
+                <label for="profileCity">City (optional)</label>
+                <input type="text" id="profileCity" placeholder="e.g. Hyderabad" />
+              </div>
+              <div class="profile-field">
+                <label for="profileBio">About me (optional)</label>
+                <input type="text" id="profileBio" placeholder="Weather enthusiast…" />
+              </div>
+            </div>
+
+            <div class="avatar-color-section" id="avatarColorPicker">
+              <label style="font-size:11px;color:var(--muted);font-weight:700">Avatar color</label>
+              <div class="color-swatches">
+                <div class="color-swatch active" data-color="#174032" style="background:#174032"></div>
+                <div class="color-swatch" data-color="#2e5c8a" style="background:#2e5c8a"></div>
+                <div class="color-swatch" data-color="#5c2e8a" style="background:#5c2e8a"></div>
+                <div class="color-swatch" data-color="#8a2e5c" style="background:#8a2e5c"></div>
+                <div class="color-swatch" data-color="#8a5c2e" style="background:#8a5c2e"></div>
+                <div class="color-swatch" data-color="#2e8a5c" style="background:#2e8a5c"></div>
+                <div class="color-swatch" data-color="#555555" style="background:#555555"></div>
+              </div>
+            </div>
+
+            <button class="primary-btn" id="profileSaveBtn" style="margin-top:18px">Save profile</button>
+          </article>
+
+          <!-- Account Security Card -->
+          <div id="accountSection">
+            <article class="card" style="margin-bottom:16px">
+              <span class="card-kicker">SECURITY</span>
+              <h3 style="font:800 15px Manrope;margin:8px 0 16px">Change password</h3>
+              <div class="profile-form">
+                <div class="profile-field">
+                  <label for="oldPassword">Current password</label>
+                  <input type="password" id="oldPassword" placeholder="Your current password" autocomplete="current-password" />
+                </div>
+                <div class="profile-field">
+                  <label for="newPassword">New password</label>
+                  <input type="password" id="newPassword" placeholder="Min. 6 characters" autocomplete="new-password" />
+                </div>
+                <div class="profile-field">
+                  <label for="confirmPassword">Confirm new password</label>
+                  <input type="password" id="confirmPassword" placeholder="Repeat new password" autocomplete="new-password" />
+                </div>
+              </div>
+              <button class="ghost-btn" id="changePasswordBtn" style="margin-top:14px">Update password</button>
+            </article>
+
+            <article class="card danger-card">
+              <span class="card-kicker" style="color:var(--danger)">DANGER ZONE</span>
+              <h3 style="font:800 15px Manrope;margin:8px 0 6px">Delete account</h3>
+              <p style="font-size:11.5px;color:var(--muted);margin-bottom:14px">Permanently delete your account and all associated data. This action cannot be undone.</p>
+              <button class="ghost-btn danger-ghost" id="deleteAccountBtn">🗑 Delete my account</button>
+            </article>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <!-- Location Search Modal -->
+  <div class="modal-backdrop" id="locationModal" role="dialog" aria-modal="true" aria-label="Choose location">
+    <div class="modal">
+      <button class="modal-close" id="modalClose" aria-label="Close">×</button>
+      <div class="eyebrow">CHOOSE LOCATION</div>
+      <h2>Search a place</h2>
+      <p>Search and select a result to load live weather.</p>
+      <div class="modal-search">
+        <input id="modalLocationInput" placeholder="e.g. Mumbai, India" autocomplete="off" />
+        <button class="primary-btn" id="modalSearchBtn">Search</button>
+      </div>
+      <div id="searchResults" class="search-results"></div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="auth.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
